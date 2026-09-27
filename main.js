@@ -4,6 +4,7 @@
   var keys  = document.querySelectorAll(".fkeys a");
   var tab   = document.getElementById("curname");
   var line  = document.getElementById("curfile");
+  var phone = matchMedia("(max-width: 640px)");
   var order = Array.prototype.map.call(keys, function(a){ return a.getAttribute("href").slice(1); });
 
   
@@ -48,6 +49,13 @@
     if (line) line.textContent = name;
     var view = document.querySelector(".view");
     if (view) view.scrollTop = 0;
+    // On a phone the page itself scrolls, and the F-key bar may hide the active key.
+    if (phone.matches) {
+      scrollTo(0, 0);
+      keys.forEach(function(a){
+        if (a.classList.contains("on") && a.scrollIntoView) a.scrollIntoView({inline: "nearest", block: "nearest"});
+      });
+    }
     if (id === "perf" && !matchMedia("(prefers-reduced-motion: reduce)").matches) playRace();
     return true;
   }
@@ -94,4 +102,6 @@
   addEventListener("hashchange", function(){ open(location.hash.slice(1)); });
 
   open(location.hash.slice(1)) || open("readme");
+  // A phone scrolls the page to the #anchor after load. Keep the header in view.
+  addEventListener("load", function(){ if (phone.matches) scrollTo(0, 0); });
 })();
