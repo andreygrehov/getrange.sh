@@ -79,7 +79,7 @@
   keys.forEach(function(a){ a.addEventListener("click", pick); });
 
   addEventListener("keydown", function(e){
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.ctrlKey || e.metaKey || (e.altKey && e.code !== "KeyR")) return;
 
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       var el = document.activeElement;
@@ -92,6 +92,12 @@
       return;
     }
 
+    // Alt+R opens the repository, as Alt+letter opens a menu in Turbo Vision.
+    if (e.altKey && e.code === "KeyR") {
+      var gh = document.querySelector(".chrome a.menu");
+      if (gh) { e.preventDefault(); location.href = gh.href; }
+      return;
+    }
     if (e.shiftKey) return;
     
     var m = /^F([1-7])$/.exec(e.key);

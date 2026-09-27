@@ -1,6 +1,7 @@
 :root{
  --blue:#0000a8;--cyan:#54fefe;--yellow:#ffff54;--grey:#aaaaaa;
  --teal:#00a8a8;--black:#000000;--white:#ffffff;--green:#006c00;
+ --red:#a80000;--lime:#00a800;
  --mono:'Martian Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
 }
 *{box-sizing:border-box}
@@ -25,7 +26,17 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--yellow);outline-off
  
 .chrome{display:flex;justify-content:space-between;align-items:center;gap:16px;
  flex-wrap:wrap;min-height:2.6em;padding:0 1.15em;background:var(--grey);color:var(--black)}
-.chrome b{font-weight:700}
+/* Turbo Vision menu item: red hotkey letter, green when selected. */
+.chrome a.menu{align-self:stretch;display:flex;align-items:center;margin:0 auto 0 -1ch;padding:0 1ch;
+ color:var(--black);text-decoration:none}
+.hot{color:var(--red)}
+.chrome a.menu:hover,.chrome a.menu:focus-visible{background:var(--lime);outline:none}
+/* Turbo Vision button: green face, hard black shadow. */
+.btn.tv{min-height:0;padding:2px 3ch;font-weight:400;background:var(--lime);color:var(--black);
+ box-shadow:9px 9px 0 var(--black);margin:0 9px 9px 0}
+.btn.tv .hot{color:var(--yellow)}
+.btn.tv:hover,.btn.tv:focus-visible{background:var(--cyan);outline:none}
+.btn.tv:active{transform:translate(9px,9px);box-shadow:0px 0px 0 var(--black)}
 .status{display:flex;align-items:center;padding:0 1.15em;
  background:var(--black);color:var(--grey);white-space:nowrap;overflow:hidden}
 .fkeys{position:sticky;bottom:0;display:flex;flex-wrap:wrap;background:var(--black);z-index:5}
