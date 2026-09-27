@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Range: use a remote environment before downloading it</title>
+<meta name="description" content="Open a shell inside a remote environment without downloading it. Range reads only the blocks a workload touches: 0.41 s to a shell, 6 MB moved of a 1 GB image.">
+<script>document.documentElement.className="js"</script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Martian+Mono:wdth,wght@87.5,400;87.5,700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="screen">
+
+<header class="chrome">
+<b>Range</b>
+<div>Use a remote environment before downloading it.</div>
+</header>
+
+<div class="body">
+
+<nav class="panel files" aria-label="Sections">
+<div class="name">~/range</div>
+<div class="head"><div class="c1">Name</div><div>About</div></div>
+<a class="row" href="#readme"><span class="c1">README.md</span><span class="c2">What Range is</span></a>
+<a class="row" href="#perf"><span class="c1">perf.log</span><span class="c2">3.9x smaller, 4.6x less network</span></a>
+<a class="row" href="#problem"><span class="c1">problem.txt</span><span class="c2">What you wait for today</span></a>
+<a class="row" href="#churn"><span class="c1">churn.log</span><span class="c2">When the environment moves</span></a>
+<a class="row" href="#bench"><span class="c1">bench.log</span><span class="c2">Time to shell, measured</span></a>
+<a class="row" href="#design"><span class="c1">design.txt</span><span class="c2">One abstraction</span></a>
+<a class="row" href="#install"><span class="c1">install.sh</span><span class="c2">Get it running</span></a>
+<div class="foot">Pick a file here. It opens in the pane on the right.</div>
+</nav>
+
+<div class="panel main">
+<div class="name tab" id="curname">README.md</div>
+<div class="view">
+<section class="pane on" id="readme">
+<p class="fname">README.md</p>
+<div class="stack">
+<h1>Use a remote environment before downloading it.</h1>
+<p>An environment is one file in object storage or on any HTTP server. Range opens a shell inside
+it without pulling it first. Only the blocks your workload reads cross the network.</p>
+<p>Try it now. You need no account and no credentials.</p>
+<pre><i># Apple silicon or arm64 Linux. On x86-64, use go1.23-amd64.range.</i>
+$ <b>range shell</b> https://github.com/andreygrehov/range/releases/download/demo/<wbr>go1.23-arm64.range
+
+<i>Range environment</i>
+<i>  Logical size      1.03 GB</i>
+<i>  Ready             0.41 s</i>
+
+root@range:/go# go version
+go version go1.23.12 linux/arm64</pre>
+<div class="figs">
+<div><b>0.41 s</b><span>to a shell</span></div>
+<div><b>6.01 MB</b><span>moved, of 1.03 GB</span></div>
+<div><b>278 MB</b><span>the whole artifact, stored</span></div>
+</div>
+<p class="dim">Measured on EC2 in us&#8209;east&#8209;1. From a laptop on home wifi: 1.76 s.</p>
+</div>
+</section>
+
+<section class="pane" id="perf">
+<p class="fname">perf.log</p>
+<div class="stack">
+<h2>3.9x smaller. 4.6x less network. 1.4x faster.</h2>
+<p>One dev environment (Ubuntu, Go, Node, Python and a Go repository with its module cache),
+stored two ways. Each ran <code>go build ./...</code> on a fresh EC2 host with nothing cached.</p>
+<div class="scroll"><div>
+<div class="lane"><span class="who">Plain EROFS image, cold</span><span class="mult">1.0x</span>
+<div class="bar"><span style="--w:100%;--d:3.0s"></span></div>
+<span class="t" data-to="9.03" data-d="3.0">9.03 s</span><span class="by">406 MB</span></div>
+<div class="lane us"><span class="who">Range artifact, cold</span><span class="mult">1.4x</span>
+<div class="bar"><span style="--w:71.6%;--d:2.16s"></span></div>
+<span class="t" data-to="6.47" data-d="2.16">6.47 s</span><span class="by">89 MB</span></div>
+<div class="lane us"><span class="who">Range artifact + profile</span><span class="mult">3.2x</span>
+<div class="bar"><span style="--w:31.0%;--d:0.93s"></span></div>
+<span class="t" data-to="2.80" data-d="0.93">2.80 s</span><span class="by">90 MB</span></div>
+<div class="axis"><span></span><span></span>
+<span class="ticks"><i style="left:0">0 s</i><i style="left:55.4%">5 s</i><i style="left:100%">9.03 s</i></span>
+<span></span><span></span></div>
+</div></div>
+<p>As a plain EROFS image, the environment takes 2.38 GB in S3. As a Range artifact, it takes
+613 MB. The artifact moves a fifth of the bytes and still finishes first.</p>
+<p>Against container lazy loaders on one host with the same build: SOCI took 9.23 s and eStargz
+with prioritized files 7.59 s and 101 MB. Range took 7.33 s and 89 MB cold, and 2.88 s with a
+learned profile.</p>
+<p class="dim">The bars replay the measured time at 3x speed. Measured 23 September 2026 on an
+m6i.2xlarge in us&#8209;east&#8209;1. Every run was cold. Bytes come from the host network counters. Each
+value is a median of five.</p>
+</div>
+</section>
+
+<section class="pane" id="problem">
+<p class="fname">problem.txt</p>
+<div class="stack">
+<h2>What you wait for today</h2>
+<p>A machine that needs a large environment downloads all of it, every time, to use a small part.</p>
+<dl>
+<div><dt><h3>CI pulls a whole image to run one test</h3></dt>
+<dd>The next commit pulls it again.</dd></div>
+<div><dt><h3>Fifty eval workers pull the same toolchain fifty times</h3></dt>
+<dd>All fifty download it in parallel, from the same bucket.</dd></div>
+<div><dt><h3>One changed dependency means a new image</h3></dt>
+<dd>You rebuild it, distribute it and roll it out before any worker can use it.</dd></div>
+</dl>
+<p class="rule">Range reads only the blocks each machine touches. It records them, and the next
+machine fetches them before it asks.</p>
+</div>
+</section>
+
+<section class="pane" id="churn">
+<p class="fname">churn.log</p>
+<div class="stack">
+<h2>Pre-baking is fast until something moves</h2>
+<p>One dependency added to a Go workspace, then shipped to five fresh EC2 workers in two ways.</p>
+<div class="scroll">
+<table>
+<thead><tr><th>From the change to five workers building</th><th>Re-bake the image</th><th>Rebuild the artifact</th></tr></thead>
+<tbody>
+<tr><td class="k">Make it distributable</td><td class="v">1082.4 s</td><td class="win">71.4 s</td></tr>
+<tr><td class="k">Launch until all five had built</td><td class="v">89.6 s</td><td class="win">28.7 s</td></tr>
+<tr class="sum"><td>Total</td><td class="v">1172.0 s</td><td class="win">100.1 s</td></tr>
+</tbody>
+</table>
+</div>
+<p>The workers boot a 30 GB image with no environment on it. Each one read the new artifact from
+S3, was ready in 0.48–0.79 s and moved 90 MB. Range's own build took 54.5 s of the 71.4 s, and
+publishing took 2.2 s.</p>
+<p class="rule">A changed environment no longer means rebuilt workers.</p>
+</div>
+</section>
+
+<section class="pane" id="bench">
+<p class="fname">bench.log</p>
+<div class="stack">
+<h2>Time to shell</h2>
+<p>The public demo, <code>golang:1.23</code> as a 278 MB artifact, published as a GitHub release
+asset and as an S3 object. Time to shell is a signal sent from inside the environment just
+before your command runs.</p>
+<div class="scroll">
+<table>
+<thead><tr><th>Client</th><th>State</th><th>GitHub</th><th>S3</th></tr></thead>
+<tbody>
+<tr><td class="k">MacBook, home wifi</td><td class="k">Cold</td><td class="win">1.76 s</td><td class="v">1.88 s</td></tr>
+<tr><td class="k"></td><td class="k">Learned</td><td class="win">1.23 s</td><td class="v">1.36 s</td></tr>
+<tr><td class="k">EC2 arm64, us&#8209;east&#8209;1</td><td class="k">Cold</td><td class="win">0.41 s</td><td class="v">0.48 s</td></tr>
+<tr><td class="k"></td><td class="k">Learned</td><td class="win">0.38 s</td><td class="v">0.40 s</td></tr>
+<tr><td class="k">EC2 x86-64, us&#8209;east&#8209;1</td><td class="k">Cold</td><td class="win">0.35 s</td><td class="v">0.47 s</td></tr>
+<tr><td class="k"></td><td class="k">Learned</td><td class="win">0.36 s</td><td class="v">0.41 s</td></tr>
+</tbody>
+</table>
+</div>
+<p>A cold start moves 6.01 MB in 24 requests. The whole artifact is 278 MB.</p>
+<p class="dim rule">Measured 27 September 2026. Laptop rows are medians of three, EC2 rows
+(m7g.large and m6i.large) medians of five. Your latency will differ. The byte counts will not.</p>
+</div>
+</section>
+
+<section class="pane" id="design">
+<p class="fname">design.txt</p>
+<div class="stack">
+<h2>One abstraction, and nothing above it</h2>
+<p><code>ReadAt(offset, length) -&gt; bytes</code>. Range does not interpret its bytes, so it
+works on anything that a byte offset can address.</p>
+<dl>
+<div><dt><h3>Reads become range requests</h3></dt>
+<dd>Range caches fixed 1 MiB blocks on local disk. Concurrent reads of one block share one
+request. Adjacent misses merge, and sequential reads prefetch ahead.</dd></div>
+<div><dt><h3>The artifact is compressed, sparse and content-addressed</h3></dt>
+<dd>One object: a 64-byte header, 1 MiB chunks compressed one by one with zstd, and an index.
+Zero chunks take no space and identical chunks are stored once. Range checks every chunk against
+its SHA-256 on read. A 2.1 GB environment is a 613 MB file.</dd></div>
+<div><dt><h3>A shell is that, with a filesystem on top</h3></dt>
+<dd>artifact -&gt; block device -&gt; read-only EROFS -&gt; writable overlay -&gt; namespaces.
+The base never changes. Writes stay local, and one artifact serves every machine at once.</dd></div>
+<div><dt><h3>It learns the working set</h3></dt>
+<dd>Each session records which blocks it needed, and when. The next session fetches them in the
+background as the shell starts. A real read always goes first.</dd></div>
+</dl>
+</div>
+</section>
+
+<section class="pane" id="install">
+<p class="fname">install.sh</p>
+<div class="stack">
+<h2>Install</h2>
+<p>A release archive for macOS or Linux, x86-64 or arm64:</p>
+<pre>$ curl -fsSL https://github.com/andreygrehov/range/releases/latest/download/range_$(uname -s)_$(uname -m).tar.gz | tar -xz</pre>
+<p>Or from source, with Go 1.25 or newer:</p>
+<pre>$ git clone https://github.com/andreygrehov/range &amp;&amp; cd range &amp;&amp; make install</pre>
+<p>Then build an environment, publish it, and open a shell in it:</p>
+<pre>$ <b>range build</b> --from-oci golang:1.23 -o go.range
+$ <b>range publish</b> go.range s3://&lt;your-bucket&gt;/go.range
+$ <b>range shell</b> s3://&lt;your-bucket&gt;/go.range
+$ <b>range run</b> s3://&lt;your-bucket&gt;/go.range -- go test ./...</pre>
+<p class="dim">Linux runs environments natively. macOS runs them in a Lima VM that Range creates
+itself. Windows works through WSL2, untested.</p>
+</div>
+</section>
+</div>
+</div>
+
+</div>
+
+<div class="status"><span>~/range $ view <span id="curfile">README.md</span></span><span class="cursor" aria-hidden="true"></span></div>
+
+<nav class="fkeys" aria-label="Sections">
+<a href="#readme"><span class="n">F1</span><span class="l">Readme</span></a>
+<a href="#perf"><span class="n">F2</span><span class="l">Perf</span></a>
+<a href="#problem"><span class="n">F3</span><span class="l">Problem</span></a>
+<a href="#churn"><span class="n">F4</span><span class="l">Churn</span></a>
+<a href="#bench"><span class="n">F5</span><span class="l">Bench</span></a>
+<a href="#design"><span class="n">F6</span><span class="l">Design</span></a>
+<a href="#install"><span class="n">F7</span><span class="l">Install</span></a>
+</nav>
+
+</div>
+
+<script src="main.js"></script>
+
+</body>
+</html>
