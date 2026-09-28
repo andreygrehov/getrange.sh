@@ -10,7 +10,7 @@
   
   
   function playRace(){
-    document.querySelectorAll("#perf .lane").forEach(function(lane){
+    document.querySelectorAll("#bench .lane").forEach(function(lane){
       var fill = lane.querySelector(".bar span"), el = lane.querySelector(".t[data-to]");
       if (fill) { fill.style.animation = "none"; void fill.offsetWidth; fill.style.animation = ""; }
       if (!el) return;
@@ -56,7 +56,7 @@
         if (a.classList.contains("on") && a.scrollIntoView) a.scrollIntoView({inline: "nearest", block: "nearest"});
       });
     }
-    if (id === "perf" && !matchMedia("(prefers-reduced-motion: reduce)").matches) playRace();
+    if (id === "bench" && !matchMedia("(prefers-reduced-motion: reduce)").matches) playRace();
     return true;
   }
 

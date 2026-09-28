@@ -14,25 +14,29 @@ problems = []
 
 for want in [
     "Use a remote environment before downloading it.",
-    "range shell", "range build", "range publish", "range run",  # the whole surface
-    "go1.23-arm64.range", "go1.23-amd64.range",  # the public demos, one per arch
-    "9.03 s", "6.47 s", "2.80 s",  # every lane of the race
-    "613 MB", "2.38 GB",  # the storage claim
-    "7.59 s", "101 MB",  # eStargz with prioritized files, same host
-    "1172.0 s", "100.1 s",  # the churn comparison against re-baking
-    "Time to shell",  # the laptop benchmark pane
-    'href="#install"',  # the page must be actionable
+    "range shell", "range run", "python:3.12", "--mount hf://",  # the whole pitch
+    "gemma-3-270m-it-Q4_K_M.gguf", "moonshotai/Kimi-K2-Instruct",  # the two demos
+    "18.27 s", "15.46 s", "6.73 s", "4.25 s",  # every lane of the chat race
+    "2.8 s", "15.8 s", "9.5 MB", "1.03 TB",  # README and bench figures
+    "Rayleigh scattering",  # the answer the demo shows
+    'href="#install"', 'href="#about"', "me.png",  # actionable, and says who made it
 ]:
     if want not in page:
         problems.append(f"page is missing {want!r}")
 
-# The race must stay honest: a claimed speedup has to match the times shown.
-for mult, secs in [("1.4", 6.47), ("3.2", 2.80)]:
-    expected = 9.03 / secs
-    if abs(float(mult) - expected) / expected > 0.02:
-        problems.append(f"lane claims {mult}x but 9.03/{secs:.2f} = {expected:.1f}x")
+# The race must stay honest: each speedup has to match the times shown.
+docker = 18.27
+for mult, secs in [("1.2", 15.46), ("2.7", 6.73), ("4.3", 4.25)]:
+    expected = docker / secs
+    if abs(float(mult) - expected) / expected > 0.05:
+        problems.append(f"lane claims {mult}x but {docker}/{secs:.2f} = {expected:.2f}x")
     if mult + "x" not in page:
         problems.append(f"race is missing the {mult}x lane")
+
+# The old demo and old panes are gone for good.
+for gone in ["perf.log", "churn.log", "install.sh"]:
+    if gone in page:
+        problems.append(f"page still mentions {gone!r}")
 
 # Design tells the site is deliberately kept free of.
 for banned in ["border-radius", "text-transform:uppercase", "linear-gradient", "backdrop-filter"]:

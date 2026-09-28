@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#aaaaaa">
 <title>Range: use a remote environment before downloading it</title>
-<meta name="description" content="Open a shell inside a remote environment without downloading it. Range reads only the blocks a workload touches: 0.41 s to a shell, 6 MB moved of a 1 GB image.">
+<meta name="description" content="Open a shell in a container image, a Hugging Face repository, or an environment in S3 or on any HTTP server, without downloading it. Range reads only the bytes your program touches.">
 <script>document.documentElement.className="js"</script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Martian+Mono:wdth,wght@87.5,400;87.5,700&display=swap">
 <link rel="stylesheet" href="style.css">
@@ -24,12 +24,12 @@
 <div class="name">~/range</div>
 <div class="head"><div class="c1">Name</div><div>About</div></div>
 <a class="row" href="#readme"><span class="c1">README.md</span><span class="c2">What Range is</span></a>
-<a class="row" href="#perf"><span class="c1">perf.log</span><span class="c2">3.9x smaller, 4.6x less network</span></a>
+<a class="row" href="#demo"><span class="c1">demo.txt</span><span class="c2">A chat, and a 1 TB model</span></a>
+<a class="row" href="#bench"><span class="c1">bench.log</span><span class="c2">Against docker pull</span></a>
 <a class="row" href="#problem"><span class="c1">problem.txt</span><span class="c2">What you wait for today</span></a>
-<a class="row" href="#churn"><span class="c1">churn.log</span><span class="c2">When the environment moves</span></a>
-<a class="row" href="#bench"><span class="c1">bench.log</span><span class="c2">Time to shell, measured</span></a>
-<a class="row" href="#design"><span class="c1">design.txt</span><span class="c2">One abstraction</span></a>
-<a class="row" href="#install"><span class="c1">install.sh</span><span class="c2">Get it running</span></a>
+<a class="row" href="#design"><span class="c1">design.txt</span><span class="c2">How it works</span></a>
+<a class="row" href="#install"><span class="c1">install.txt</span><span class="c2">Get it running</span></a>
+<a class="row" href="#about"><span class="c1">about_me.txt</span><span class="c2">Who made it</span></a>
 <div class="foot">Pick a file here. It opens in the pane on the right.</div>
 </nav>
 
@@ -40,55 +40,88 @@
 <p class="fname">README.md</p>
 <div class="stack">
 <h1>Use a remote environment before downloading it.</h1>
-<p>An environment is one file in object storage or on any HTTP server. Range opens a shell inside
-it without pulling it first. Only the blocks your workload reads cross the network.</p>
-<p>Try it now. You need no account and no credentials.</p>
-<pre><i># Apple silicon or arm64 Linux. On x86-64, use go1.23-amd64.range.</i>
-$ <b>range shell</b> https://github.com/andreygrehov/range/releases/download/demo/<wbr>go1.23-arm64.range
-
-<i>Range environment</i>
-<i>  Logical size      1.03 GB</i>
-<i>  Ready             0.41 s</i>
-
-root@range:/go# go version
-go version go1.23.12 linux/arm64</pre>
+<p>Range opens a shell in a container image, a Hugging Face repository, or an environment in S3
+or on any HTTP server, without downloading it first. Only the bytes your program reads cross the
+network.</p>
+<pre>$ <b>range shell</b> python:3.12
+$ <b>range shell</b> python:3.12 --mount hf://moonshotai/Kimi-K2-Instruct:/model
+$ <b>range shell</b> s3://&lt;your-bucket&gt;/dev.range</pre>
 <div class="figs">
-<div><b>0.41 s</b><span>to a shell</span></div>
-<div><b>6.01 MB</b><span>moved, of 1.03 GB</span></div>
-<div><b>278 MB</b><span>the whole artifact, stored</span></div>
+<div><b>2.8 s</b><span>to run Python in python:3.12</span></div>
+<div><b>48 MB</b><span>moved, of a 435 MB image</span></div>
+<div><b>9.5 MB</b><span>read, of a 1.03 TB model</span></div>
 </div>
-<p class="dim">Measured on EC2 in us&#8209;east&#8209;1. From a laptop on home wifi: 1.76 s.</p>
+<p>No Docker, no daemon and no pull. Linux runs it natively. On macOS, Range runs Linux in a
+small VM that it manages itself.</p>
+<p class="dim">Measured on EC2 in us&#8209;east&#8209;1, with the image indexed once. See bench.log.</p>
 </div>
 </section>
 
-<section class="pane" id="perf">
-<p class="fname">perf.log</p>
+<section class="pane" id="demo">
+<p class="fname">demo.txt</p>
 <div class="stack">
-<h2>3.9x smaller. 4.6x less network. 1.4x faster.</h2>
-<p>One dev environment (Ubuntu, Go, Node, Python and a Go repository with its module cache),
-stored two ways. Each ran <code>go build ./...</code> on a fresh EC2 host with nothing cached.</p>
+<h2>A chat model, from nothing, in one line</h2>
+<pre>$ <b>range run</b> ghcr.io/ggml-org/llama.cpp:light-b11206 \
+    --mount hf://unsloth/gemma-3-270m-it-GGUF:/model -- \
+    llama-cli -m /model/gemma-3-270m-it-Q4_K_M.gguf -st \
+    -p "Why is the sky blue? Answer in one sentence."
+
+The sky is blue because of a phenomenon called Rayleigh scattering,
+where blue light is scattered more than other colors.</pre>
+<p>Range opens the llama.cpp image from its registry and mounts the model repository at
+<code>/model</code>. The repository holds 6.38 GB in 24 files. Range reads one of them.
+With the image indexed, the answer took 6.7 s from an empty cache.
+<code>docker pull</code> plus <code>hf download</code> took 18.3 s. The very first run,
+which also indexes the image, took 15.5 s.</p>
+<h2>A 1 TB model, open in seconds</h2>
+<pre>$ <b>range run</b> python:3.12 --mount hf://moonshotai/Kimi-K2-Instruct:/model -- \
+    du -sh --apparent-size /model
+959G    /model</pre>
+<p>Kimi K2 is 1.03 TB in 61 shards. A Python script inside read its config, the header of one
+shard and one tensor. That took 3.4 s with the image indexed, and moved 9.5 MB of the model. The
+other 60 shards never left Hugging Face.</p>
+<p class="dim rule">Range reads a file when a program opens it. A program that reads a whole model
+still downloads the whole model, once.</p>
+</div>
+</section>
+
+<section class="pane" id="bench">
+<p class="fname">bench.log</p>
+<div class="stack">
+<h2>The chat demo, against docker pull</h2>
 <div class="scroll"><div>
-<div class="lane"><span class="who">Plain EROFS image, cold</span><span class="mult">1.0x</span>
-<div class="bar"><span style="--w:100%;--d:3.0s"></span></div>
-<span class="t" data-to="9.03" data-d="3.0">9.03 s</span><span class="by">406 MB</span></div>
-<div class="lane us"><span class="who">Range artifact, cold</span><span class="mult">1.4x</span>
-<div class="bar"><span style="--w:71.6%;--d:2.16s"></span></div>
-<span class="t" data-to="6.47" data-d="2.16">6.47 s</span><span class="by">89 MB</span></div>
-<div class="lane us"><span class="who">Range artifact + profile</span><span class="mult">3.2x</span>
-<div class="bar"><span style="--w:31.0%;--d:0.93s"></span></div>
-<span class="t" data-to="2.80" data-d="0.93">2.80 s</span><span class="by">90 MB</span></div>
+<div class="lane"><span class="who">docker pull + hf download</span><span class="mult">1.0x</span>
+<div class="bar"><span style="--w:100.0%;--d:6.09s"></span></div>
+<span class="t" data-to="18.27" data-d="6.09">18.27 s</span><span class="by">579 MB</span></div>
+<div class="lane us"><span class="who">Range, first run</span><span class="mult">1.2x</span>
+<div class="bar"><span style="--w:84.6%;--d:5.15s"></span></div>
+<span class="t" data-to="15.46" data-d="5.15">15.46 s</span><span class="by">590 MB</span></div>
+<div class="lane us"><span class="who">Range, image indexed</span><span class="mult">2.7x</span>
+<div class="bar"><span style="--w:36.8%;--d:2.24s"></span></div>
+<span class="t" data-to="6.73" data-d="2.24">6.73 s</span><span class="by">317 MB</span></div>
+<div class="lane us"><span class="who">Range, again</span><span class="mult">4.3x</span>
+<div class="bar"><span style="--w:23.3%;--d:1.42s"></span></div>
+<span class="t" data-to="4.25" data-d="1.42">4.25 s</span><span class="by">0 MB</span></div>
 <div class="axis"><span></span><span></span>
-<span class="ticks"><i style="left:0">0 s</i><i style="left:55.4%">5 s</i><i style="left:100%">9.03 s</i></span>
+<span class="ticks"><i style="left:0.0%">0 s</i><i style="left:54.7%">10 s</i></span>
 <span></span><span></span></div>
 </div></div>
-<p>As a plain EROFS image, the environment takes 2.38 GB in S3. As a Range artifact, it takes
-613 MB. The artifact moves a fifth of the bytes and still finishes first.</p>
-<p>Against container lazy loaders on one host with the same build: SOCI took 9.23 s and eStargz
-with prioritized files 7.59 s and 101 MB. Range took 7.33 s and 89 MB cold, and 2.88 s with a
-learned profile.</p>
-<p class="dim">The bars replay the measured time at 3x speed. Measured 23 September 2026 on an
-m6i.2xlarge in us&#8209;east&#8209;1. Every run was cold. Bytes come from the host network counters. Each
-value is a median of five.</p>
+<div class="scroll">
+<table>
+<thead><tr><th>Empty cache to output</th><th>docker pull</th><th>Range, first run</th><th>Range, indexed</th><th>Range, again</th></tr></thead>
+<tbody>
+<tr><td class="k">Chat demo</td><td class="v">18.3 s <span class="mb">579 MB</span></td><td class="v">15.5 s <span class="mb">590 MB</span></td><td class="win">6.7 s <span class="mb">317 MB</span></td><td class="v">4.2 s <span class="mb">0 MB</span></td></tr>
+<tr><td class="k">python:3.12</td><td class="v">15.8 s <span class="mb">435 MB</span></td><td class="v">16.5 s <span class="mb">415 MB</span></td><td class="win">2.8 s <span class="mb">48 MB</span></td><td class="v">1.1 s <span class="mb">0 MB</span></td></tr>
+<tr><td class="k">rust:1.82</td><td class="v">19.6 s <span class="mb">569 MB</span></td><td class="v">22.4 s <span class="mb">546 MB</span></td><td class="win">8.0 s <span class="mb">125 MB</span></td><td class="v">1.6 s <span class="mb">0 MB</span></td></tr>
+<tr><td class="k">eclipse-temurin:21</td><td class="v">7.9 s <span class="mb">232 MB</span></td><td class="v">9.2 s <span class="mb">225 MB</span></td><td class="win">2.9 s <span class="mb">49 MB</span></td><td class="v">1.0 s <span class="mb">0 MB</span></td></tr>
+<tr><td class="k">Kimi K2, 1 TB</td><td class="v">not tried <span class="mb">1.03 TB</span></td><td class="v">17.6 s <span class="mb">433 MB</span></td><td class="win">3.4 s <span class="mb">56 MB</span></td><td class="v">1.2 s <span class="mb">0 MB</span></td></tr>
+</tbody>
+</table>
+</div>
+<p class="dim rule">The commands: import json and sqlite3, cargo --version, java -version, and a
+read of one Kimi K2 tensor. A first run reads each layer once to index it. The python:3.12 index
+is 4.1 MB. Medians of three, m6i.large, us&#8209;east&#8209;1, 28 September 2026. Every run starts
+empty, except "again". The bars replay at 3x speed.</p>
 </div>
 </section>
 
@@ -98,63 +131,16 @@ value is a median of five.</p>
 <h2>What you wait for today</h2>
 <p>A machine that needs a large environment downloads all of it, every time, to use a small part.</p>
 <dl>
-<div><dt><h3>CI pulls a whole image to run one test</h3></dt>
-<dd>The next commit pulls it again.</dd></div>
-<div><dt><h3>Fifty eval workers pull the same toolchain fifty times</h3></dt>
-<dd>All fifty download it in parallel, from the same bucket.</dd></div>
-<div><dt><h3>One changed dependency means a new image</h3></dt>
-<dd>You rebuild it, distribute it and roll it out before any worker can use it.</dd></div>
+<div><dt><h3>docker pull downloads a whole image to run one command</h3></dt>
+<dd>python:3.12 is a 435 MB download. Starting Python needs 48 MB of it.</dd></div>
+<div><dt><h3>A model repository comes whole</h3></dt>
+<dd>unsloth/gemma-3-270m-it-GGUF holds 24 versions of one model in 6.38 GB. The demo
+needs one of them, 253 MB.</dd></div>
+<div><dt><h3>Fifty eval workers download the same thing fifty times</h3></dt>
+<dd>Each worker copies it to its own disk before it starts.</dd></div>
 </dl>
-<p class="rule">Range reads only the blocks each machine touches. It records them, and the next
-machine fetches them before it asks.</p>
-</div>
-</section>
-
-<section class="pane" id="churn">
-<p class="fname">churn.log</p>
-<div class="stack">
-<h2>Pre-baking is fast until something moves</h2>
-<p>One dependency added to a Go workspace, then shipped to five fresh EC2 workers in two ways.</p>
-<div class="scroll">
-<table>
-<thead><tr><th>From the change to five workers building</th><th>Re-bake the image</th><th>Rebuild the artifact</th></tr></thead>
-<tbody>
-<tr><td class="k">Make it distributable</td><td class="v">1082.4 s</td><td class="win">71.4 s</td></tr>
-<tr><td class="k">Launch until all five had built</td><td class="v">89.6 s</td><td class="win">28.7 s</td></tr>
-<tr class="sum"><td>Total</td><td class="v">1172.0 s</td><td class="win">100.1 s</td></tr>
-</tbody>
-</table>
-</div>
-<p>The workers boot a 30 GB image with no environment on it. Each one read the new artifact from
-S3, was ready in 0.48–0.79 s and moved 90 MB. Range's own build took 54.5 s of the 71.4 s, and
-publishing took 2.2 s.</p>
-<p class="rule">A changed environment no longer means rebuilt workers.</p>
-</div>
-</section>
-
-<section class="pane" id="bench">
-<p class="fname">bench.log</p>
-<div class="stack">
-<h2>Time to shell</h2>
-<p>The public demo, <code>golang:1.23</code> as a 278 MB artifact, published as a GitHub release
-asset and as an S3 object. Time to shell is a signal sent from inside the environment just
-before your command runs.</p>
-<div class="scroll">
-<table>
-<thead><tr><th>Client</th><th>State</th><th>GitHub</th><th>S3</th></tr></thead>
-<tbody>
-<tr><td class="k">MacBook, home wifi</td><td class="k">Cold</td><td class="win">1.76 s</td><td class="v">1.88 s</td></tr>
-<tr><td class="k"></td><td class="k">Learned</td><td class="win">1.23 s</td><td class="v">1.36 s</td></tr>
-<tr><td class="k">EC2 arm64, us&#8209;east&#8209;1</td><td class="k">Cold</td><td class="win">0.41 s</td><td class="v">0.48 s</td></tr>
-<tr><td class="k"></td><td class="k">Learned</td><td class="win">0.38 s</td><td class="v">0.40 s</td></tr>
-<tr><td class="k">EC2 x86-64, us&#8209;east&#8209;1</td><td class="k">Cold</td><td class="win">0.35 s</td><td class="v">0.47 s</td></tr>
-<tr><td class="k"></td><td class="k">Learned</td><td class="win">0.36 s</td><td class="v">0.41 s</td></tr>
-</tbody>
-</table>
-</div>
-<p>A cold start moves 6.01 MB in 24 requests. The whole artifact is 278 MB.</p>
-<p class="dim rule">Measured 27 September 2026. Laptop rows are medians of three, EC2 rows
-(m7g.large and m6i.large) medians of five. Your latency will differ. The byte counts will not.</p>
+<p class="rule">Range reads only the bytes each machine touches, and the next run fetches them
+before it asks.</p>
 </div>
 </section>
 
@@ -162,43 +148,53 @@ before your command runs.</p>
 <p class="fname">design.txt</p>
 <div class="stack">
 <h2>One abstraction, and nothing above it</h2>
-<p><code>ReadAt(offset, length) -&gt; bytes</code>. Range does not interpret its bytes, so it
-works on anything that a byte offset can address.</p>
+<p><code>ReadAt(offset, length) -&gt; bytes</code>. Range turns a source into a disk, and turns
+each read of that disk into a ranged request to the source.</p>
 <dl>
-<div><dt><h3>Reads become range requests</h3></dt>
-<dd>Range caches fixed 1 MiB blocks on local disk. Concurrent reads of one block share one
-request. Adjacent misses merge, and sequential reads prefetch ahead.</dd></div>
-<div><dt><h3>The artifact is compressed, sparse and content-addressed</h3></dt>
-<dd>One object: a 64-byte header, 1 MiB chunks compressed one by one with zstd, and an index.
-Zero chunks take no space and identical chunks are stored once. Range checks every chunk against
-its SHA-256 on read. A 2.1 GB environment is a 613 MB file.</dd></div>
+<div><dt><h3>An image becomes a disk</h3></dt>
+<dd>Range reads each layer once to index it. After that a file costs one ranged request to the
+registry, and a few megabytes of gzip or zstd decompression at most. The image stays as it is.</dd></div>
+<div><dt><h3>A model repository becomes a disk</h3></dt>
+<dd>The file list comes from the Hugging Face API, pinned to one commit. Reading a file sends a
+ranged request to the Hub.</dd></div>
 <div><dt><h3>A shell is that, with a filesystem on top</h3></dt>
-<dd>artifact -&gt; block device -&gt; read-only EROFS -&gt; writable overlay -&gt; namespaces.
-The base never changes. Writes stay local, and one artifact serves every machine at once.</dd></div>
+<dd>disk -&gt; read-only EROFS -&gt; writable overlay -&gt; namespaces. Writes stay local.
+Range checks every 64 KiB of an image layer against a SHA-256 in the index.</dd></div>
 <div><dt><h3>It learns the working set</h3></dt>
-<dd>Each session records which blocks it needed, and when. The next session fetches them in the
-background as the shell starts. A real read always goes first.</dd></div>
+<dd>Each session records which blocks it needed. The next session fetches them in the background
+as the shell starts. A real read always goes first.</dd></div>
 </dl>
 </div>
 </section>
 
 <section class="pane" id="install">
-<p class="fname">install.sh</p>
+<p class="fname">install.txt</p>
 <div class="stack">
 <h2>Install</h2>
-<p>A release archive for macOS or Linux, x86-64 or arm64:</p>
-<pre>$ curl -fsSL https://github.com/andreygrehov/range/releases/latest/download/range_$(uname -s)_$(uname -m).tar.gz | tar -xz</pre>
-<p>Or from source, with Go 1.25 or newer:</p>
+<p>A release archive for macOS or Linux, x86-64 or arm64. On macOS, Range also needs Lima for
+its Linux VM. Then open a shell in any image:</p>
+<pre>$ curl -fsSL https://github.com/andreygrehov/range/releases/latest/download/range_$(uname -s)_$(uname -m).tar.gz | tar -xz
+$ brew install lima      <i># macOS only</i>
+$ ./range shell python:3.12</pre>
+<p>For your own environments, build once, and every first run reads lazily:</p>
+<pre>$ <b>range build</b> --from-oci python:3.12 -o py.range
+$ <b>range publish</b> py.range s3://&lt;your-bucket&gt;/py.range
+$ <b>range shell</b> s3://&lt;your-bucket&gt;/py.range</pre>
+<p class="dim">A published artifact needs no indexing. The go1.23 demo artifact was ready in
+0.41 s on its first run, and moved 6 MB of 1.03 GB.</p>
+<p>Or build from source, with Go 1.25 or newer:</p>
 <pre>$ git clone https://github.com/andreygrehov/range &amp;&amp; cd range &amp;&amp; make install</pre>
-<p>Then build an environment, publish it, and open a shell in it:</p>
-<pre>$ <b>range build</b> --from-oci golang:1.23 -o go.range
-$ <b>range publish</b> go.range s3://&lt;your-bucket&gt;/go.range
-$ <b>range shell</b> s3://&lt;your-bucket&gt;/go.range
-$ <b>range run</b> s3://&lt;your-bucket&gt;/go.range -- go test ./...</pre>
-<p>Source, issues and releases:</p>
 <div class="btns"><a class="btn tv" href="https://github.com/andreygrehov/range"><span class="hot">G</span>itHub</a></div>
-<p class="dim">Linux runs environments natively. macOS runs them in a Lima VM that Range creates
-itself. Windows works through WSL2, untested.</p>
+<p class="dim">Linux needs root and the nbd, erofs and overlay kernel modules.
+<code>range doctor</code> checks them. Windows works through WSL2, untested.</p>
+</div>
+</section>
+
+<section class="pane" id="about">
+<p class="fname">about_me.txt</p>
+<div class="stack">
+<img class="portrait" src="me.png" width="256" height="256" alt="A dithered black and white portrait of Andrey Grehov">
+<p>I am a software engineer at AWS. Range is my personal project.</p>
 </div>
 </section>
 </div>
@@ -210,12 +206,12 @@ itself. Windows works through WSL2, untested.</p>
 
 <nav class="fkeys" aria-label="Sections">
 <a href="#readme"><span class="n">F1</span><span class="l">Readme</span></a>
-<a href="#perf"><span class="n">F2</span><span class="l">Perf</span></a>
-<a href="#problem"><span class="n">F3</span><span class="l">Problem</span></a>
-<a href="#churn"><span class="n">F4</span><span class="l">Churn</span></a>
-<a href="#bench"><span class="n">F5</span><span class="l">Bench</span></a>
-<a href="#design"><span class="n">F6</span><span class="l">Design</span></a>
-<a href="#install"><span class="n">F7</span><span class="l">Install</span></a>
+<a href="#demo"><span class="n">F2</span><span class="l">Demo</span></a>
+<a href="#bench"><span class="n">F3</span><span class="l">Bench</span></a>
+<a href="#problem"><span class="n">F4</span><span class="l">Problem</span></a>
+<a href="#design"><span class="n">F5</span><span class="l">Design</span></a>
+<a href="#install"><span class="n">F6</span><span class="l">Install</span></a>
+<a href="#about"><span class="n">F7</span><span class="l">About</span></a>
 </nav>
 
 </div>
