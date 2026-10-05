@@ -71,8 +71,8 @@ where blue light is scattered more than other colors.</pre>
 <p>Range opens the llama.cpp image from its registry and mounts the model repository at
 <code>/model</code>. The repository holds 6.38 GB in 24 files. Range reads one of them.
 With the image indexed, the answer took 6.7 s from an empty cache.
-<code>docker pull</code> plus <code>hf download</code> took 18.3 s. The very first run,
-which also indexes the image, took 15.5 s.</p>
+<code>docker pull</code> plus <code>hf download</code> took 18.3 s. The image comes
+pre-indexed from a public catalog, so a new user starts there.</p>
 <h2>A 1 TB model, open in seconds</h2>
 <pre>$ <b>range run</b> python:3.12 --mount hf://moonshotai/Kimi-K2-Instruct:/model -- \
     du -sh --apparent-size /model
@@ -119,7 +119,7 @@ still downloads the whole model, once.</p>
 </table>
 </div>
 <p class="dim rule">The commands: import json and sqlite3, cargo --version, java -version, and a
-read of one Kimi K2 tensor. A first run reads each layer once to index it. The python:3.12 index
+read of one Kimi K2 tensor. A first run fetches each layer's index from the catalog, or builds it once. The python:3.12 index
 is 4.1 MB. Medians of three, m6i.large, us&#8209;east&#8209;1, 28 September 2026. Every run starts
 empty, except "again". The bars replay at 3x speed.</p>
 </div>
@@ -152,7 +152,7 @@ before it asks.</p>
 each read of that disk into a ranged request to the source.</p>
 <dl>
 <div><dt><h3>An image becomes a disk</h3></dt>
-<dd>Range reads each layer once to index it. After that a file costs one ranged request to the
+<dd>Range fetches each layer's index from a public catalog, or builds it once. After that a file costs one ranged request to the
 registry, and a few megabytes of gzip or zstd decompression at most. The image stays as it is.</dd></div>
 <div><dt><h3>A model repository becomes a disk</h3></dt>
 <dd>The file list comes from the Hugging Face API, pinned to one commit. Reading a file sends a
