@@ -45,14 +45,15 @@ or on any HTTP server, without downloading it first. Only the bytes your program
 network.</p>
 <pre>$ <b>range shell</b> python:3.12
 $ <b>range shell</b> python:3.12 --mount hf://moonshotai/Kimi-K2-Instruct:/model
-$ <b>range shell</b> s3://&lt;your-bucket&gt;/dev.range</pre>
+$ <b>range shell</b> s3://&lt;your-bucket&gt;/dev.range
+$ <b>range shell</b> python:3.12 --mount .:/work -p 8000:8000</pre>
 <div class="figs">
 <div><b>2.8 s</b><span>to run Python in python:3.12</span></div>
 <div><b>48 MB</b><span>moved, of a 435 MB image</span></div>
 <div><b>9.5 MB</b><span>read, of a 1.03 TB model</span></div>
 </div>
-<p>No Docker, no daemon and no pull. Linux runs it natively. On macOS, Range runs Linux in a
-small VM that it manages itself.</p>
+<p>No Docker, no daemon and no pull. On Linux, Range runs natively as root, or without root in a
+small VM of its own. On a Mac, it boots its own small Linux VM for each session.</p>
 <p class="dim">Measured on EC2 in us&#8209;east&#8209;1, with the image indexed once. See bench.log.</p>
 </div>
 </section>
@@ -122,6 +123,22 @@ still downloads the whole model, once.</p>
 read of one Kimi K2 tensor. A first run fetches each layer's index from the catalog, or builds it once. The python:3.12 index
 is 4.1 MB. Medians of three, m6i.large, us&#8209;east&#8209;1, 28 September 2026. Every run starts
 empty, except "again". The bars replay at 3x speed.</p>
+<h2>Real work on a Mac, against Docker Desktop</h2>
+<div class="scroll">
+<table>
+<thead><tr><th>Prompt to prompt</th><th>Cold, Range</th><th>Cold, Docker</th><th>Warm, Range</th><th>Warm, Docker</th></tr></thead>
+<tbody>
+<tr><td class="k">pip install requests numpy</td><td class="win">12.2 s</td><td class="v">17.4 s</td><td class="v">4.5 s</td><td class="win">3.8 s</td></tr>
+<tr><td class="k">python -m compileall</td><td class="win">10.3 s</td><td class="v">14.6 s</td><td class="v">2.2 s</td><td class="win">1.5 s</td></tr>
+<tr><td class="k">cargo new, cargo build</td><td class="win">15.2 s</td><td class="v">16.7 s</td><td class="v">1.6 s</td><td class="win">0.6 s</td></tr>
+<tr><td class="k">go build, shared directory</td><td class="win">10.9 s</td><td class="v">15.1 s</td><td class="v">4.2 s</td><td class="win">3.4 s</td></tr>
+</tbody>
+</table>
+</div>
+<p class="dim rule">Cold, nothing of the image is on the Mac. Range wins every cold run. Warm, Docker
+Desktop wins by 0.6 to 1.0 s: its VM is always running, and Range boots one for each session.
+Medians of three, MacBook Pro with Apple silicon, wifi, 6 October 2026, against Docker Desktop
+28.0.4.</p>
 </div>
 </section>
 
@@ -171,10 +188,8 @@ as the shell starts. A real read always goes first.</dd></div>
 <p class="fname">install.txt</p>
 <div class="stack">
 <h2>Install</h2>
-<p>A release archive for macOS or Linux, x86-64 or arm64. On macOS, Range also needs Lima for
-its Linux VM. Then open a shell in any image:</p>
+<p>A release archive for macOS or Linux, x86-64 or arm64. Then open a shell in any image:</p>
 <pre>$ curl -fsSL https://github.com/andreygrehov/range/releases/latest/download/range_$(uname -s)_$(uname -m).tar.gz | tar -xz
-$ brew install lima      <i># macOS only</i>
 $ ./range shell python:3.12</pre>
 <p>For your own environments, build once, and every first run reads lazily:</p>
 <pre>$ <b>range build</b> --from-oci python:3.12 -o py.range
@@ -185,8 +200,10 @@ $ <b>range shell</b> s3://&lt;your-bucket&gt;/py.range</pre>
 <p>Or build from source, with Go 1.25 or newer:</p>
 <pre>$ git clone https://github.com/andreygrehov/range &amp;&amp; cd range &amp;&amp; make install</pre>
 <div class="btns"><a class="btn tv" href="https://github.com/andreygrehov/range"><span class="hot">G</span>itHub</a></div>
-<p class="dim">Linux needs root and the nbd, erofs and overlay kernel modules.
-<code>range doctor</code> checks them. Windows works through WSL2, untested.</p>
+<p class="dim">On Linux as root, Range needs the erofs and overlay kernel modules, and loads nbd
+itself. Without root, it needs QEMU and the kvm group. A Mac with Apple silicon needs nothing
+more. An Intel Mac needs Lima: <code>brew install lima</code>. <code>range doctor</code> checks
+all of it. Windows works through WSL2, untested.</p>
 </div>
 </section>
 
