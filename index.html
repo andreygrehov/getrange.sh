@@ -24,7 +24,7 @@
 <div class="name">~/range</div>
 <div class="head"><div class="c1">Name</div><div>About</div></div>
 <a class="row" href="#readme"><span class="c1">README.md</span><span class="c2">What Range is</span></a>
-<a class="row" href="#demo"><span class="c1">demo.txt</span><span class="c2">A chat, and a 1 TB model</span></a>
+<a class="row" href="#demo"><span class="c1">demo.txt</span><span class="c2">A chat, a 1 TB model, a server</span></a>
 <a class="row" href="#bench"><span class="c1">bench.log</span><span class="c2">Against docker pull</span></a>
 <a class="row" href="#problem"><span class="c1">problem.txt</span><span class="c2">What you wait for today</span></a>
 <a class="row" href="#design"><span class="c1">design.txt</span><span class="c2">How it works</span></a>
@@ -46,7 +46,8 @@ network.</p>
 <pre>$ <b>range shell</b> python:3.12
 $ <b>range shell</b> python:3.12 --mount hf://moonshotai/Kimi-K2-Instruct:/model
 $ <b>range shell</b> s3://&lt;your-bucket&gt;/dev.range
-$ <b>range shell</b> python:3.12 --mount .:/work -p 8000:8000</pre>
+$ <b>range shell</b> python:3.12 --mount .:/work -p 8000:8000
+$ <b>range shell</b> ebs://ami-0123456789abcdef0</pre>
 <div class="figs">
 <div><b>2.8 s</b><span>to run Python in python:3.12</span></div>
 <div><b>48 MB</b><span>moved, of a 435 MB image</span></div>
@@ -83,6 +84,13 @@ shard and one tensor. That took 3.4 s with the image indexed, and moved 9.5 MB o
 other 60 shards never left Hugging Face.</p>
 <p class="dim rule">Range reads a file when a program opens it. A program that reads a whole model
 still downloads the whole model, once.</p>
+<h2>A server's disk, from your laptop</h2>
+<pre>$ <b>range run</b> ebs://snap-0fb55b083ff371aff -- \
+    sh -c 'grep PRETTY /etc/os-release; dpkg -l | wc -l'
+PRETTY_NAME="Ubuntu 24.04.5 LTS"
+641</pre>
+<p>Range opens an EBS snapshot or an AMI with no instance and no volume. From a MacBook, the
+answer took 6.3 s. Starting an instance from the AMI took 21.9 s.</p>
 </div>
 </section>
 
