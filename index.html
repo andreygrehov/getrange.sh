@@ -24,7 +24,7 @@
 <div class="name">~/range</div>
 <div class="head"><div class="c1">Name</div><div>About</div></div>
 <a class="row" href="#readme"><span class="c1">README.md</span><span class="c2">What Range is</span></a>
-<a class="row" href="#demo"><span class="c1">demo.txt</span><span class="c2">A chat, a 1 TB model, a server</span></a>
+<a class="row" href="#demo"><span class="c1">demo.txt</span><span class="c2">Chat, GPU, 1 TB model, server</span></a>
 <a class="row" href="#bench"><span class="c1">bench.log</span><span class="c2">Against docker pull</span></a>
 <a class="row" href="#problem"><span class="c1">problem.txt</span><span class="c2">What you wait for today</span></a>
 <a class="row" href="#design"><span class="c1">design.txt</span><span class="c2">How it works</span></a>
@@ -75,6 +75,12 @@ where blue light is scattered more than other colors.</pre>
 With the image indexed, the answer took 6.7 s from an empty cache.
 <code>docker pull</code> plus <code>hf download</code> took 18.3 s. The image comes
 pre-indexed from a public catalog, so a new user starts there.</p>
+<h2>The same chat, on your GPU</h2>
+<pre>$ <b>sudo range run --gpus all</b> ghcr.io/ggml-org/llama.cpp:light-cuda-b11206 \
+    --mount hf://unsloth/gemma-3-270m-it-GGUF:/model -- \
+    llama-cli -m /model/gemma-3-270m-it-Q4_K_M.gguf -ngl 99 -st -p "Hi"</pre>
+<p>Range keeps the kernels CUDA compiles for your GPU. On a Tesla T4, every run after the first
+answered in 3.1 s. With Docker, every run took about two minutes.</p>
 <h2>A 1 TB model, open in seconds</h2>
 <pre>$ <b>range run</b> python:3.12 --mount hf://moonshotai/Kimi-K2-Instruct:/model -- \
     du -sh --apparent-size /model
