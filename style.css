@@ -73,12 +73,12 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--yellow);outline-off
 .files a.row.on .c2{color:var(--black)}
 .fkeys a.on .l{background:var(--white)}
 .head{display:flex;gap:16px;padding:0 12px 6px;color:var(--yellow)}
-.head .c1{width:14ch;flex-shrink:0}
+.head .c1{width:18ch;flex-shrink:0}
  
 .files a.row{padding:0 12px;display:flex;gap:16px;align-items:center;
  text-decoration:none;color:var(--cyan)}
 @media (pointer:coarse){.files a.row{min-height:44px}}
-.files a.row .c1{width:14ch;flex-shrink:0;font-weight:700}
+.files a.row .c1{width:18ch;flex-shrink:0;font-weight:700}
 .files a.row .c2{flex-grow:1;color:var(--grey)}
 .files a.row:hover{background:var(--teal);color:var(--black)}
 .files a.row:hover .c2{color:var(--black)}

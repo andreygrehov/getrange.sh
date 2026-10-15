@@ -24,7 +24,8 @@
 <div class="name">~/range</div>
 <div class="head"><div class="c1">Name</div><div>About</div></div>
 <a class="row" href="#readme"><span class="c1">README.md</span><span class="c2">What Range is</span></a>
-<a class="row" href="#demo"><span class="c1">demo.txt</span><span class="c2">Chat, GPU, 1 TB model, server</span></a>
+<a class="row" href="#demo"><span class="c1">demo.txt</span><span class="c2">Chat, GPU, 1 TB model, any tool</span></a>
+<a class="row" href="#sandbox"><span class="c1">agent_sandbox.txt</span><span class="c2">A sandbox for an agent</span></a>
 <a class="row" href="#bench"><span class="c1">bench.log</span><span class="c2">Against docker pull</span></a>
 <a class="row" href="#problem"><span class="c1">problem.txt</span><span class="c2">What you wait for today</span></a>
 <a class="row" href="#design"><span class="c1">design.txt</span><span class="c2">How it works</span></a>
@@ -47,14 +48,15 @@ network.</p>
 $ <b>range shell</b> python:3.12 --mount hf://moonshotai/Kimi-K2-Instruct:/model
 $ <b>range shell</b> s3://&lt;your-bucket&gt;/dev.range
 $ <b>range shell</b> python:3.12 --mount .:/work -p 8000:8000
-$ <b>range shell</b> ebs://ami-0123456789abcdef0</pre>
+$ <b>range shell</b> ebs://ami-0123456789abcdef0
+$ <b>range shell</b> ubuntu --commands</pre>
 <div class="figs">
 <div><b>2.8 s</b><span>to run Python in python:3.12</span></div>
 <div><b>48 MB</b><span>moved, of a 435 MB image</span></div>
 <div><b>9.5 MB</b><span>read, of a 1.03 TB model</span></div>
 </div>
-<p>No Docker, no daemon and no pull. On Linux, Range runs natively as root, or without root in a
-small VM of its own. On a Mac, it boots its own small Linux VM for each session.</p>
+<p>No Docker, no daemon and no pull. Each session runs in a small VM of its own, on Linux and on
+a Mac.</p>
 <p class="dim">Measured on EC2 in us&#8209;east&#8209;1, with the image indexed once. See bench.log.</p>
 </div>
 </section>
@@ -97,6 +99,45 @@ PRETTY_NAME="Ubuntu 24.04.5 LTS"
 641</pre>
 <p>Range opens an EBS snapshot or an AMI with no instance and no volume. From a MacBook, the
 answer took 6.3 s. Starting an instance from the AMI took 21.9 s.</p>
+<h2>Every command, any version</h2>
+<pre>$ <b>range shell</b> ubuntu --commands
+root@range:~# python3 -c 'print(6*7)'
+[range] python3 from python:3.12-slim
+42
+root@range:~# go@1.22 version
+go version go1.22.12 linux/arm64</pre>
+<p>A command Ubuntu lacks comes from the image that has it. <code>go@1.22</code> picks the
+version, and so does a project's <code>go.mod</code> or <code>.nvmrc</code>.</p>
+</div>
+</section>
+
+<section class="pane" id="sandbox">
+<p class="fname">agent_sandbox.txt</p>
+<div class="stack">
+<h2>A sandbox for an agent</h2>
+<pre>$ id=$(<b>range run -d</b> --commands --cpus 2 --memory 4g \
+    --allow-host pypi.org --allow-host files.pythonhosted.org ubuntu)
+$ <b>range cp</b> ./repo $id:/root/
+$ <b>range exec</b> -w /root/repo $id go test ./...
+ok      example.com/demo    0.001s
+$ <b>range exec</b> -it $id bash
+$ <b>range stop</b> $id</pre>
+<div class="figs">
+<div><b>0.71 s</b><span>to a ready VM, image cached</span></div>
+<div><b>0.89 s</b><span>to start ten of them</span></div>
+<div><b>0</b><span>daemons to install</span></div>
+</div>
+<dl>
+<div><dt><h3>A VM of its own</h3></dt>
+<dd>Each sandbox boots its own small VM, on Linux and on a Mac.</dd></div>
+<div><dt><h3>Every tool, any version</h3></dt>
+<dd><code>go</code>, <code>pip</code> or <code>nvcc</code> come from the image that has them.</dd></div>
+<div><dt><h3>Only the hosts you allow</h3></dt>
+<dd><code>--network none</code> cuts it off. <code>--allow-host</code> opens one host.</dd></div>
+<div><dt><h3>Docker's commands</h3></dt>
+<dd><code>run -d</code>, <code>exec</code>, <code>cp</code>, <code>ps</code>, <code>stop</code>,
+<code>--cpus</code>, <code>--memory</code>.</dd></div>
+</dl>
 </div>
 </section>
 
@@ -208,9 +249,9 @@ $ <b>range shell</b> s3://&lt;your-bucket&gt;/py.range</pre>
 <p>Or build from source, with Go 1.25 or newer:</p>
 <pre>$ git clone https://github.com/andreygrehov/range &amp;&amp; cd range &amp;&amp; make install</pre>
 <div class="btns"><a class="btn tv" href="https://github.com/andreygrehov/range"><span class="hot">G</span>itHub</a></div>
-<p class="dim">On Linux as root, Range needs the erofs and overlay kernel modules, and loads nbd
-itself. Without root, it needs QEMU and the kvm group. A Mac with Apple silicon needs nothing
-more. An Intel Mac needs Lima: <code>brew install lima</code>. <code>range doctor</code> checks
+<p class="dim">On Linux, Range needs QEMU and KVM, as root or in the kvm group. Without KVM, as
+root, it runs natively with the erofs and overlay kernel modules. A Mac with Apple silicon needs
+nothing more. An Intel Mac needs Lima: <code>brew install lima</code>. <code>range doctor</code> checks
 all of it. Windows works through WSL2, untested.</p>
 </div>
 </section>
@@ -232,11 +273,12 @@ all of it. Windows works through WSL2, untested.</p>
 <nav class="fkeys" aria-label="Sections">
 <a href="#readme"><span class="n">F1</span><span class="l">Readme</span></a>
 <a href="#demo"><span class="n">F2</span><span class="l">Demo</span></a>
-<a href="#bench"><span class="n">F3</span><span class="l">Bench</span></a>
-<a href="#problem"><span class="n">F4</span><span class="l">Problem</span></a>
-<a href="#design"><span class="n">F5</span><span class="l">Design</span></a>
-<a href="#install"><span class="n">F6</span><span class="l">Install</span></a>
-<a href="#about"><span class="n">F7</span><span class="l">About</span></a>
+<a href="#sandbox"><span class="n">F3</span><span class="l">Sandbox</span></a>
+<a href="#bench"><span class="n">F4</span><span class="l">Bench</span></a>
+<a href="#problem"><span class="n">F5</span><span class="l">Problem</span></a>
+<a href="#design"><span class="n">F6</span><span class="l">Design</span></a>
+<a href="#install"><span class="n">F7</span><span class="l">Install</span></a>
+<a href="#about"><span class="n">F8</span><span class="l">About</span></a>
 </nav>
 
 </div>

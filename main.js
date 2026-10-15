@@ -100,7 +100,7 @@
     }
     if (e.shiftKey) return;
     
-    var m = /^F([1-7])$/.exec(e.key);
+    var m = /^F([1-8])$/.exec(e.key);
     if (!m) return;
     var id = order[parseInt(m[1], 10) - 1];
     if (id && open(id)) e.preventDefault();

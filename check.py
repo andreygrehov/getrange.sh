@@ -20,6 +20,7 @@ for want in [
     "2.8 s", "15.8 s", "9.5 MB", "1.03 TB",  # README and bench figures
     "Rayleigh scattering",  # the answer the demo shows
     'href="#install"', 'href="#about"', "me.png",  # actionable, and says who made it
+    "agent_sandbox.txt", "range run -d", "range exec", "0.71 s", "0.89 s",  # the agent sandbox
 ]:
     if want not in page:
         problems.append(f"page is missing {want!r}")
